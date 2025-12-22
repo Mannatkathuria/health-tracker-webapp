@@ -13,7 +13,7 @@ function Doctors() {
   const [nearbyDoctors, setNearbyDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
 
-  const GOOGLE_API_KEY = "AIzaSyDl1tJJSR9jM-06OputSzTMV0gUXVgZLmE"; // Replace with your key
+  const GOOGLE_API_KEY = "GOOGLE_API_KEY"; // Replace with your key
 
   // Fetch last 3 days logs
   useEffect(() => {
@@ -39,8 +39,6 @@ function Doctors() {
     };
     fetchLogs();
   }, []);
-
-  // Nearby doctors logic omitted for brevity (same as before)
 
   // Fetch family doctors on component mount
   useEffect(() => {
