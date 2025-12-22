@@ -17,7 +17,7 @@ function Profile() {
     medications: "Vitamin D",
     familyDoctors: ["Dr. Sharma - dr.sharma@example.com"],
     emergencyContact: "9876543210",
-    notes: "No major health issues"
+    notes: "No major health issues",
   });
 
   const [editMode, setEditMode] = useState(false);
@@ -34,15 +34,19 @@ function Profile() {
     setEditMode(false);
   };
 
+  const formatLabel = (key) =>
+    key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+
+  // ---------------- UI ----------------
   return (
     <div style={{ display: "flex", justifyContent: "center", margin: "20px" }}>
       {editMode ? (
         <form onSubmit={handleSubmit} style={{ ...cardStyle, padding: "20px", width: "500px" }}>
           <h3 style={{ textAlign: "center", color: "#4CAF50" }}>Edit Profile</h3>
-          {Object.keys(formData).map((key) => (
+          {Object.keys(formData).map(key => (
             <div key={key} style={{ marginBottom: "12px" }}>
               <label style={{ display: "block", marginBottom: "4px", fontWeight: "bold" }}>
-                {key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}
+                {formatLabel(key)}
               </label>
               <input
                 type={key === "email" ? "email" : "text"}
@@ -53,7 +57,7 @@ function Profile() {
                   width: "100%",
                   padding: "8px",
                   borderRadius: "5px",
-                  border: "1px solid #ccc"
+                  border: "1px solid #ccc",
                 }}
               />
             </div>
@@ -70,30 +74,17 @@ function Profile() {
           </div>
         </form>
       ) : (
-        <div
-          style={{
-            ...cardStyle,
-            padding: "20px",
-            width: "max-content",
-            minWidth: "400px",
-            maxWidth: "90vw",
-            whiteSpace: "nowrap"
-          }}
-        >
+        <div style={{ ...cardStyle, padding: "20px", minWidth: "400px", maxWidth: "90vw" }}>
           <h3 style={{ textAlign: "center", color: "#4CAF50" }}>Profile</h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "max-content 1fr",
-              rowGap: "10px",
-              columnGap: "20px"
-            }}
-          >
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "max-content 1fr",
+            rowGap: "10px",
+            columnGap: "20px",
+          }}>
             {Object.entries(profile).map(([key, value]) => (
               <React.Fragment key={key}>
-                <div style={{ fontWeight: "bold", textAlign: "right" }}>
-                  {key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}:
-                </div>
+                <div style={{ fontWeight: "bold", textAlign: "right" }}>{formatLabel(key)}:</div>
                 <div style={{ textAlign: "left" }}>
                   {Array.isArray(value) ? value.join(", ") : value}
                 </div>

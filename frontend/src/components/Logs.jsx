@@ -7,100 +7,75 @@ import { cardStyle, inputStyle, buttonStyle } from "../styles";
 
 function Logs() {
   // ---------------- STATES ----------------
+  const [allLogs, setAllLogs] = useState([]);
+  const [fileUploads, setFileUploads] = useState([]);
+
   const [symptom, setSymptom] = useState("");
   const [medicine, setMedicine] = useState("");
-
-  const [symptomsLogs, setSymptomsLogs] = useState([]);
-  const [medicineLogs, setMedicineLogs] = useState([]);
-  const [allLogs, setAllLogs] = useState([]);
+  const [file, setFile] = useState(null);
+  const [fileLabel, setFileLabel] = useState("");
 
   const [summary, setSummary] = useState("");
   const [alerts, setAlerts] = useState([]);
   const [tips, setTips] = useState([]);
+  const [loadingAI, setLoadingAI] = useState(false);
 
-  const [file, setFile] = useState(null);
-  const [fileLabel, setFileLabel] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-
-  //Fetch Data
+  // ---------------- FETCH DATA ----------------
   useEffect(() => {
-    fetchAllLogs();
-    fetchUploadedFiles();
+    fetchAllData();
   }, []);
 
-  const fetchAllLogs = async () => {
-    const sSnap = await getDocs(collection(db, "symptomsLogs"));
-    const mSnap = await getDocs(collection(db, "medicineLogs"));
-    const allSnap = await getDocs(collection(db, "healthLogs"));
-
-    setSymptomsLogs(
-      sSnap.docs.map(d => ({
-        symptom: d.data().symptom,
-        timestamp: d.data().timestamp?.toDate(),
-      }))
-    );
-
-    setMedicineLogs(
-      mSnap.docs.map(d => ({
-        medicine: d.data().medicine,
-        timestamp: d.data().timestamp?.toDate(),
-      }))
-    );
-
-    setAllLogs(
-      allSnap.docs
-        .map(d => ({
-          symptom: d.data().symptom || "—",
-          medicine: d.data().medicine || "—",
-          timestamp: d.data().timestamp?.toDate(),
-        }))
-        .sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0))
-    );
-  };
-
-  const fetchUploadedFiles = async () => {
-    const snap = await getDocs(collection(db, "healthFiles"));
-    setUploadedFiles(
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-        timestamp: d.data().timestamp?.toDate(),
-      }))
-    );
-  };
-
-  //Add logs
-  const addSymptom = async () => {
-    if (!symptom) return alert("Enter a symptom");
-    await addDoc(collection(db, "symptomsLogs"), { symptom, timestamp: serverTimestamp() });
-    await addDoc(collection(db, "healthLogs"), { symptom, timestamp: serverTimestamp() });
-    setSymptom("");
-    fetchAllLogs();
-  };
-
-  const addMedicine = async () => {
-    if (!medicine) return alert("Enter a medicine");
-    await addDoc(collection(db, "medicineLogs"), { medicine, timestamp: serverTimestamp() });
-    await addDoc(collection(db, "healthLogs"), { medicine, timestamp: serverTimestamp() });
-    setMedicine("");
-    fetchAllLogs();
-  };
-
-  //File Upload
-  const handleFileUpload = async () => {
-    if (!file || !fileLabel) {
-      alert("Select file and label!");
-      return;
-    }
-
+  const fetchAllData = async () => {
     try {
-      const storageRef = ref(
-        storage,
-        `healthFiles/${Date.now()}_${file.name}`
+      const [logsSnap, filesSnap] = await Promise.all([
+        getDocs(collection(db, "healthLogs")),
+        getDocs(collection(db, "healthFiles"))
+      ]);
+
+      setAllLogs(
+        logsSnap.docs
+          .map(d => ({
+            id: d.id,
+            symptom: d.data().symptom || "—",
+            medicine: d.data().medicine || "—",
+            timestamp: d.data().timestamp?.toDate(),
+          }))
+          .sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0))
       );
 
-      await uploadBytes(storageRef, file);
+      setFileUploads(
+        filesSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          timestamp: d.data().timestamp?.toDate(),
+        }))
+      );
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
 
+  // ---------------- ADD LOGS ----------------
+  const addLog = async (type, value, setter) => {
+    if (!value) return alert(`Enter a ${type}`);
+    try {
+      await addDoc(collection(db, `${type}Logs`), { [type]: value, timestamp: serverTimestamp() });
+      await addDoc(collection(db, "healthLogs"), { [type]: value, timestamp: serverTimestamp() });
+      setter("");
+      fetchAllData();
+    } catch (err) {
+      console.error("Add log error:", err);
+      alert(`Failed to add ${type}`);
+    }
+  };
+
+  // ---------------- FILE UPLOAD ----------------
+  const handleFileUpload = async () => {
+    if (!file || !fileLabel) return alert("Select file and label!");
+
+    try {
+      const storageRef = ref(storage, `healthFiles/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
       await addDoc(collection(db, "healthFiles"), {
@@ -112,8 +87,7 @@ function Logs() {
 
       setFile(null);
       setFileLabel("");
-      fetchUploadedFiles();
-
+      fetchAllData();
       alert("File uploaded successfully ✅");
     } catch (err) {
       console.error("Upload error:", err);
@@ -121,31 +95,38 @@ function Logs() {
     }
   };
 
-  //AI summary
+  // ---------------- AI SUMMARY ----------------
   const generateAISummary = async () => {
+    setLoadingAI(true);
     try {
       const res = await fetch("http://127.0.0.1:8000/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ logs: allLogs }),
       });
-
       const data = await res.json();
       setSummary("AI Analysis Generated");
       setAlerts(data.alerts || []);
       setTips(data.tips || []);
-    } catch (e) {
-      alert("AI server not running");
+    } catch (err) {
+      alert("AI server not running ❌");
+      console.error(err);
+    } finally {
+      setLoadingAI(false);
     }
   };
 
-  //UI
+  // ---------------- FILTERS ----------------
+  const symptomLogs = allLogs.filter(l => l.symptom && l.symptom !== "—");
+  const medicineLogs = allLogs.filter(l => l.medicine && l.medicine !== "—");
+
+  // ---------------- UI ----------------
   return (
     <div style={{ padding: "20px" }}>
       <h2 style={{ textAlign: "center", color: "#4CAF50" }}>Health Logs</h2>
 
       <div style={{ display: "flex", gap: "20px" }}>
-        {/* LEFT SIDE */}
+        {/* LEFT: SYMPTOMS & MEDICINES */}
         <div style={{ flex: 1 }}>
           <h3>Symptoms</h3>
           <input
@@ -154,13 +135,10 @@ function Logs() {
             value={symptom}
             onChange={e => setSymptom(e.target.value)}
           />
-          <button onClick={addSymptom} style={buttonStyle}>Add</button>
-
+          <button onClick={() => addLog("symptom", symptom, setSymptom)} style={buttonStyle}>Add</button>
           <ul>
-            {symptomsLogs.map((s, i) => (
-              <li key={i}>
-                {s.symptom} — {s.timestamp?.toLocaleString()}
-              </li>
+            {symptomLogs.map((s, i) => (
+              <li key={i}>{s.symptom} — {s.timestamp?.toLocaleString()}</li>
             ))}
           </ul>
 
@@ -171,18 +149,15 @@ function Logs() {
             value={medicine}
             onChange={e => setMedicine(e.target.value)}
           />
-          <button onClick={addMedicine} style={buttonStyle}>Add</button>
-
+          <button onClick={() => addLog("medicine", medicine, setMedicine)} style={buttonStyle}>Add</button>
           <ul>
             {medicineLogs.map((m, i) => (
-              <li key={i}>
-                {m.medicine} — {m.timestamp?.toLocaleString()}
-              </li>
+              <li key={i}>{m.medicine} — {m.timestamp?.toLocaleString()}</li>
             ))}
           </ul>
         </div>
 
-        {/* RIGHT SIDE */}
+        {/* RIGHT: FILE UPLOAD */}
         <div style={{ flex: 1 }}>
           <h3>Upload Scans / Reports</h3>
           <input type="file" onChange={e => setFile(e.target.files[0])} />
@@ -195,12 +170,9 @@ function Logs() {
           <button onClick={handleFileUpload} style={buttonStyle}>Upload</button>
 
           <ul>
-            {uploadedFiles.map(f => (
+            {fileUploads.map(f => (
               <li key={f.id}>
-                <a href={f.url} target="_blank" rel="noreferrer">
-                  {f.label}
-                </a>{" "}
-                — {f.timestamp?.toLocaleString()}
+                <a href={f.url} target="_blank" rel="noreferrer">{f.label}</a> — {f.timestamp?.toLocaleString()}
               </li>
             ))}
           </ul>
@@ -208,15 +180,12 @@ function Logs() {
       </div>
 
       <div style={{ textAlign: "center", marginTop: "20px" }}>
-        <button onClick={generateAISummary} style={buttonStyle}>Generate AI Summary</button>
+        <button onClick={generateAISummary} style={buttonStyle} disabled={loadingAI}>
+          {loadingAI ? "Generating..." : "Generate AI Summary"}
+        </button>
       </div>
 
-      {summary && (
-        <div style={cardStyle}>
-          <h4>AI Summary</h4>
-          <p>{summary}</p>
-        </div>
-      )}
+      {summary && <div style={cardStyle}><h4>AI Summary</h4><p>{summary}</p></div>}
 
       {alerts.length > 0 && (
         <div style={{ ...cardStyle, background: "#ffebee" }}>
@@ -235,9 +204,7 @@ function Logs() {
       <h3>All Health Logs</h3>
       <ul>
         {allLogs.map((l, i) => (
-          <li key={i}>
-            {l.symptom} | {l.medicine} | {l.timestamp?.toLocaleString()}
-          </li>
+          <li key={i}>{l.symptom} | {l.medicine} | {l.timestamp?.toLocaleString()}</li>
         ))}
       </ul>
     </div>
