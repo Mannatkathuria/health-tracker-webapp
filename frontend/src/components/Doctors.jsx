@@ -21,11 +21,7 @@ function Doctors() {
   const [newDoctorEmail, setNewDoctorEmail] = useState("");
   const [loadingDoctors] = useState(false); // feature disabled for now
 
-<<<<<<< HEAD
-  const GOOGLE_API_KEY = "GOOGLE_API_KEY"; // Replace with your key
-=======
-  const GOOGLE_API_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY; // ok (not used here)
->>>>>>> 32946b2 (UI Improvements)
+  const GOOGLE_API_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
 
   // --- Fetch last 3 days logs ---
   useEffect(() => {
@@ -59,11 +55,7 @@ function Doctors() {
     fetchLogs();
   }, []);
 
-<<<<<<< HEAD
-  // Fetch family doctors on component mount
-=======
   // --- Fetch family doctors ---
->>>>>>> 32946b2 (UI Improvements)
   useEffect(() => {
     const fetchFamilyDoctors = async () => {
       try {
