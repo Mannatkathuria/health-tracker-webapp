@@ -1,5 +1,3 @@
-// src/styles.js
-
 export const cardStyle = {
   padding: "15px",
   border: "1px solid #ccc",

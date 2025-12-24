@@ -1,4 +1,3 @@
-// src/components/Profile.jsx
 import React, { useState } from "react";
 import { buttonStyle, cardStyle } from "../styles";
 

@@ -1,4 +1,3 @@
-// src/components/Doctors.jsx
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -12,14 +11,16 @@ import {
 } from "firebase/firestore";
 import { db, storage } from "../firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { cardStyle, buttonStyle, inputStyle } from "../styles"; // FIX: import inputStyle
+import { cardStyle, buttonStyle, inputStyle } from "../styles";
 
 function Doctors() {
   const [logs, setLogs] = useState([]);
   const [familyDoctors, setFamilyDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState("");
   const [newDoctorEmail, setNewDoctorEmail] = useState("");
-  const [loadingDoctors] = useState(false); // feature disabled for now
+  const [loadingDoctors] = useState(false); 
+  const [nearbyDoctors, setNearbyDoctors] = useState([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
 
   const GOOGLE_API_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -43,7 +44,7 @@ function Doctors() {
             timestamp: d.timestamp?.toDate()
           };
         });
-        // FIX: robust sorting
+        
         fetchedLogs.sort(
           (a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0)
         );
@@ -161,8 +162,38 @@ function Doctors() {
 
     const emails = familyDoctors.map(d => d.email).join(",");
     alert(`This would send CSV to: ${emails}`);
-    // Example:
     // await fetch('/api/send-csv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails, csvContent }) });
+  };
+
+  // --- Fetch Nearby Doctors ---
+  const fetchNearbyDoctors = () => {
+    setLoadingNearby(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          const response = await fetch(
+            `http://127.0.0.1:8000/nearby-doctors?lat=${latitude}&lng=${longitude}`
+          );
+          const data = await response.json();
+          
+          if (data.doctors) {
+            setNearbyDoctors(data.doctors);
+          }
+        } catch (err) {
+          console.error("Failed to fetch nearby doctors:", err);
+          alert("Could not connect to backend server.");
+        } finally {
+          setLoadingNearby(false);
+        }
+      },
+      (error) => {
+        setLoadingNearby(false);
+        alert("Location access denied. Please enable GPS.");
+      }
+    );
   };
 
   return (
@@ -198,7 +229,7 @@ function Doctors() {
         type="text"
         placeholder="Doctor Name"
         value={newDoctorName}
-        style={inputStyle} // FIX: now defined
+        style={inputStyle} 
         onFocus={e => (e.currentTarget.style.border = "1px solid #4CAF50")}
         onBlur={e => (e.currentTarget.style.border = inputStyle.border || "1px solid #ccc")} // safe fallback
         onChange={e => setNewDoctorName(e.target.value)}
@@ -208,7 +239,7 @@ function Doctors() {
         type="email"
         placeholder="Doctor Email"
         value={newDoctorEmail}
-        style={inputStyle} // FIX: now defined
+        style={inputStyle} 
         onFocus={e => (e.currentTarget.style.border = "1px solid #4CAF50")}
         onBlur={e => (e.currentTarget.style.border = inputStyle.border || "1px solid #ccc")} // safe fallback
         onChange={e => setNewDoctorEmail(e.target.value)}
@@ -267,7 +298,7 @@ function Doctors() {
           onMouseLeave={e =>
             (e.currentTarget.style.backgroundColor = buttonStyle.backgroundColor)
           }
-          onClick={downloadCSV} // FIX
+          onClick={downloadCSV}
         >
           Download CSV
         </button>
@@ -278,14 +309,45 @@ function Doctors() {
           onMouseLeave={e =>
             (e.currentTarget.style.backgroundColor = buttonStyle.backgroundColor)
           }
-          onClick={emailCSV} // FIX
+          onClick={emailCSV}
         >
           Email CSV
         </button>
       </div>
 
       <h4 style={{ marginTop: "30px" }}>Nearby Doctors:</h4>
-      <p>Feature temporarily unavailable due to API restrictions.</p>
+      <button 
+        style={{ ...buttonStyle, marginBottom: "20px", backgroundColor: "#2196F3" }}
+        onClick={fetchNearbyDoctors}
+        disabled={loadingNearby}
+      >
+        {loadingNearby ? "Searching..." : "Find Doctors Near Me"}
+      </button>
+
+      {nearbyDoctors.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px" }}>
+          {nearbyDoctors.map((doc, index) => (
+            <div key={index} style={{ ...cardStyle, borderLeft: "5px solid #2196F3" }}>
+              <div style={{ fontWeight: "bold", fontSize: "1.1rem" }}>{doc.name}</div>
+              <div style={{ color: "#666", fontSize: "0.9rem" }}>{doc.address}</div>
+              <div style={{ marginTop: "5px" }}>
+                <span style={{ 
+                  backgroundColor: "#e3f2fd", 
+                  color: "#1976d2", 
+                  padding: "2px 8px", 
+                  borderRadius: "4px", 
+                  fontSize: "0.8rem",
+                  textTransform: "capitalize"
+                }}>
+                  {doc.type}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        !loadingNearby && <p style={{ color: "#888" }}>Click the button to see doctors in your area.</p>
+      )}
     </div>
   );
 }

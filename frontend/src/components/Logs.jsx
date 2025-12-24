@@ -1,4 +1,3 @@
-// src/components/Logs.jsx
 import React, { useState, useEffect } from "react";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -99,17 +98,30 @@ function Logs() {
   const generateAISummary = async () => {
     setLoadingAI(true);
     try {
+      const cleanLogs = allLogs.map(log => ({
+        symptom: String(log.symptom || ""),
+        medicine: String(log.medicine || ""),
+        date: log.timestamp ? log.timestamp.toLocaleString() : "N/A"
+      }));
+
       const res = await fetch("http://127.0.0.1:8000/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logs: allLogs }),
+        body: JSON.stringify({ logs: cleanLogs }),
       });
+
       const data = await res.json();
-      setSummary("AI Analysis Generated");
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Server Error");
+      }
+
+      setSummary(data.summary || "");
       setAlerts(data.alerts || []);
       setTips(data.tips || []);
+
     } catch (err) {
-      alert("AI server not running ❌");
+      alert(`AI server error: ${err.message} ❌`);
       console.error(err);
     } finally {
       setLoadingAI(false);
@@ -185,21 +197,35 @@ function Logs() {
         </button>
       </div>
 
-      {summary && <div style={cardStyle}><h4>AI Summary</h4><p>{summary}</p></div>}
+      <div style={{
+        display: "flex",
+        gap: "16px",
+        flexWrap: "wrap",
+      }}>
+        
+        {summary && (
+          <div style={{ ...cardStyle, flex: 1 }}>
+            <h4>AI Summary</h4>
+            <p>{summary}</p>
+          </div>
+        )}
 
-      {alerts.length > 0 && (
-        <div style={{ ...cardStyle, background: "#ffebee" }}>
-          <h4 style={{ color: "#f44336" }}>⚠️ Alerts</h4>
-          <ul>{alerts.map((a, i) => <li key={i}>{a}</li>)}</ul>
-        </div>
-      )}
+        {alerts.length > 0 && (
+          <div style={{ ...cardStyle, background: "#ffebee", flex: 1 }}>
+            <h4 style={{ color: "#f44336" }}>⚠️ Alerts</h4>
+            <ul>{alerts.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          </div>
+        )}
 
-      {tips.length > 0 && (
-        <div style={{ ...cardStyle, background: "#e0f7fa" }}>
-          <h4>💡 Health Tips</h4>
-          <ul>{tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
-        </div>
-      )}
+        {tips.length > 0 && (
+          <div style={{ ...cardStyle, background: "#e0f7fa", flex: 1 }}>
+            <h4>💡 Health Tips</h4>
+            <ul>{tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
+          </div>
+        )}
+
+      </div>
+
 
       <h3>All Health Logs</h3>
       <ul>
